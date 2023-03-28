@@ -22,4 +22,4 @@
 
 ## License
 
-[MIT](https://github.com/WZHZW) © [**ARCHER**]
+[MIT](https://github.com/WZHZW/AUTOBUILD-actions/blob/main/LICENSE) © [**ARCHER**]
