@@ -4,7 +4,7 @@
 ![GitHub Stars](https://img.shields.io/github/stars/WZHZW/Archer.svg?style=flat-square&label=Stars&logo=github)
 ![GitHub Forks](https://img.shields.io/github/forks/WZHZW/Archer.svg?style=flat-square&label=Forks&logo=github)
 
-A template for building OpenWrt with GitHub Actions
+一个基于github actions的openwrt项目
 
 ## List
 
