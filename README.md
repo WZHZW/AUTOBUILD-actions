@@ -41,4 +41,4 @@ A template for building OpenWrt with GitHub Actions
 
 ## License
 
-(https://github.com/WZHZW) © [**Archer**]
+[ARCHER](https://github.com/WZHZW) © [**Archer**]
