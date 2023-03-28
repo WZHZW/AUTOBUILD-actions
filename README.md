@@ -1,6 +1,5 @@
 # ARCHER
 
-[![LICENSE](https://github.com/WZHZW/Actions-OpenWrt/blob/master/LICENSE)
 ![GitHub Stars](https://img.shields.io/github/stars/WZHZW/Archer.svg?style=flat-square&label=Stars&logo=github)
 ![GitHub Forks](https://img.shields.io/github/forks/WZHZW/Archer.svg?style=flat-square&label=Forks&logo=github)
 
