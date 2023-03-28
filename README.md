@@ -14,6 +14,8 @@
 | [Newifi3](./.github/workflows/AutoBuild-d-team_newifi-d2.yml) | [d-team_newifi-d2](./Configs/d-team_newifi-d2) | ✅ |
 
 ## Credits
+
+- [P3TERX's Blog](https://p3terx.com/archives/build-openwrt-with-github-actions.html)
 - [Microsoft Azure](https://azure.microsoft.com)
 - [GitHub Actions](https://github.com/features/actions)
 - [OpenWrt](https://github.com/openwrt/openwrt)
