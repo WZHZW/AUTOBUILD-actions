@@ -21,4 +21,4 @@
 
 ## License
 
-[ARCHER](https://github.com/WZHZW) © [**ARCHER**]
+[MIT](https://github.com/WZHZW) © [**ARCHER**]
