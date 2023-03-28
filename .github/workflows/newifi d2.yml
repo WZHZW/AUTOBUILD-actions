@@ -159,8 +159,8 @@ jobs:
             echo -e "\nCONFIG_DEVEL=y\nCONFIG_CCACHE=y\n" >> $GITHUB_WORKSPACE/Configs/$CONFIG_FILE
         fi
         cp $GITHUB_WORKSPACE/Configs/$CONFIG_FILE .config
-        # source $GITHUB_WORKSPACE/Scripts/AutoBuild_DiyScript.sh
-        # source $GITHUB_WORKSPACE/Scripts/AutoBuild_Function.sh
+        source $GITHUB_WORKSPACE/Scripts/AutoBuild_DiyScript.sh
+        source $GITHUB_WORKSPACE/Scripts/AutoBuild_Function.sh
         make defconfig
         Firmware_Diy_Before
         rm -f .config && cp $GITHUB_WORKSPACE/Configs/$CONFIG_FILE .config
