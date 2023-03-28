@@ -165,15 +165,15 @@ jobs:
         echo "::set-output name=status::success"
 
     - name: Upload firmware to release
-      uses: softprops/action-gh-release@v1
+      uses: svenstaro/upload-release-action@v2
       if: steps.tag.outputs.status == 'success' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: release.txt
-        files: ${{ env.FIRMWARE }}/*
-
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: openwrt/bin/Firmware/*
+        file_glob: true
+        tag: AutoUpdate
+        overwrite: true
+    
     - name: Delete workflow runs
       uses: GitRML/delete-workflow-runs@main
       with:
