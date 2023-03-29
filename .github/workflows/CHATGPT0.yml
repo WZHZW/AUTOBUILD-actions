@@ -1,31 +1,52 @@
 name: CHATGPT0
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  repository_dispatch:
   workflow_dispatch:
+env:
+  REPO_URL: https://github.com/openwrt/openwrt
+  REPO_BRANCH: master
+  CONFIG_FILE: .config
+  TZ: Asia/Shanghai
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          repository: openwrt/openwrt
-          ref: main
-
+      - name: Checkout source code
+        uses: actions/checkout@v3
+        
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python3 python2.7 unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx-ucl libelf-dev autoconf automake libtool autopoint device-tree-compiler g++-multilib antlr3 gperf wget curl swig rsync ccache
 
-      - name: Load config file
+      - name: Clone source code
+        working-directory: /build_dir
         run: |
-          make menuconfig < .config
+          df -hT $PWD
+          git clone $REPO_URL -b $REPO_BRANCH openwrt
+          ln -sf /build_dir/openwrt $GITHUB_WORKSPACE/openwrt
+      
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./openwrt/build_dir
+            ./openwrt/staging_dir
+          key: ${{ runner.os }}-${{ matrix.profile }}-${{ hashFiles('**/openwrt/feeds.conf') }}
+      
+      - name: Clone OpenWrt feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
+      - name: Apply custom configuration
+        run: |
+          [ -e files ] && mv files openwrt/files
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+          
       - name: Compile firmware
         run: |
           export PATH="/usr/lib/ccache:$PATH"
