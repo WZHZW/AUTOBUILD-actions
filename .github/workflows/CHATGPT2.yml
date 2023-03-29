@@ -3,7 +3,7 @@
 # https://stackoverflow.com/questions/68665890/speed-up-embedded-linux-compilation-process
 # https://unix.stackexchange.com/questions/89120/how-to-make-openwrt-makefile-compile-faster
 
-name: CHATGPT0
+name: CHATGPT2
 on:
   workflow_dispatch: # 手动触发
 
