@@ -1,42 +1,70 @@
-name: CHATGPT2
+# 这是一个使用GitHub Actions在线编译openwrt并上传到release的yml文件
+# 参考来源：https://openwrt.org/faq/how_can_i_speed_up_build_process
+# https://stackoverflow.com/questions/68665890/speed-up-embedded-linux-compilation-process
+# https://unix.stackexchange.com/questions/89120/how-to-make-openwrt-makefile-compile-faster
+
+name: CHATGPT0
 on:
-  push:
-    branches:
-      - master
-  workflow_dispatch:
+  workflow_dispatch: # 手动触发
+
+env:
+  REPO_URL: https://github.com/openwrt/openwrt # openwrt源码仓库地址
+  REPO_BRANCH: master # openwrt源码分支
+  CONFIG_FILE: .config # 配置文件名
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-    - name: Clone OpenWrt
-      run: |
-        git clone https://github.com/openwrt/openwrt.git
-        cd openwrt
-        make defconfig
-        cd ..
-        mv openwrt/* ./
-        rm -rf openwrt/
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential libncurses5-dev libssl-dev unzip gawk zlib1g-dev git subversion
-    - name: Create .config
-      run: |
-        touch .config
-    - name: Copy .config
-      run: |
-        cp .config .config.bak
-        cp ./openwrt/.config ./openwrt/.config.bak
-        cp ./openwrt/.config .config
-    - name: Build OpenWrt
-      working-directory: ./openwrt
-      run: |
-        make -j$(nproc)
-    - name: Upload firmware
-      if: ${{ success() }}
-      uses: actions/upload-artifact@v2
-      with:
-        name: openwrt-firmware
-        path: openwrt/bin/targets/*
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Initialization environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install $(curl -fsSL git.io/depends-ubuntu-2004)
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          sudo mkdir -p /workdir
+          sudo chown $USER:$GROUPS /workdir
+
+      - name: Clone source code
+        working-directory: /workdir
+        run: |
+          df -hT $PWD
+          git clone $REPO_URL -b $REPO_BRANCH openwrt --depth=1 # 使用--depth=1参数只克隆最新的提交，减少下载时间和空间占用
+          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+      - name: Load custom configuration
+        run: |
+          [ -e files ] && mv files openwrt/files # 如果有files目录，移动到openwrt目录下
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config # 如果有配置文件，移动到openwrt目录下
+
+      - name: Download package
+        id: package
+        run: |
+          cd openwrt
+          make defconfig # 使用默认配置或者自定义配置文件生成配置
+          make download -j$(nproc) # 下载依赖包，使用和CPU核心数相同的线程数并行下载，可以根据网络情况调整
+          find dl -size -1024c -exec ls -l {} \; # 列出下载失败的包，如果有的话
+          find dl -size -1024c -exec rm -f {} \; # 删除下载失败的包，如果有的话
+
+      - name: Compile the firmware
+        id: compile
+        run: |
+          cd openwrt
+          echo -e "$(nproc) thread compile" # 显示编译线程数，一般等于CPU核心数
+          make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache # 编译固件，使用ccache缓存编译结果，加快二次编译速度
+
+     
+      - name: Upload to release
+        uses : JasonEtco/upload-to-release@master # 使用第三方action上传文件到release页面，需要提供GITHUB_TOKEN和文件路径参数 
+        with:
+          args: Openwrt-Newifi3.bin
+        env:
+          GITHUB_TOKEN: ${{ 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 }}
+   
