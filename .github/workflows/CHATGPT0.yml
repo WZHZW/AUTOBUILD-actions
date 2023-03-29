@@ -1,67 +1,74 @@
+# 这是一个使用GitHub Actions在线编译openwrt并上传到release的yml文件
+# 参考来源：https://openwrt.org/faq/how_can_i_speed_up_build_process
+# https://stackoverflow.com/questions/68665890/speed-up-embedded-linux-compilation-process
+# https://unix.stackexchange.com/questions/89120/how-to-make-openwrt-makefile-compile-faster
+
 name: CHATGPT0
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-  workflow_dispatch:
+  workflow_dispatch: # 手动触发
+  schedule: # 定时触发
+    - cron: 0 0 * * 0 # 每周日0点执行
+  push: # 推送触发
+    tags: # 根据标签触发，如v1.0
+      - 'v*'
+
+env:
+  REPO_URL: https://github.com/openwrt/openwrt # openwrt源码仓库地址
+  REPO_BRANCH: master # openwrt源码分支
+  CONFIG_FILE: .config # 配置文件名
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
+
     steps:
-      # Define some variables for convenience
-      - name: Define variables
-        run: |
-          # The source code repository and branch
-          echo "REPO=openwrt/openwrt" >> $GITHUB_ENV
-          echo "BRANCH=main" >> $GITHUB_ENV
-          # The config file for the device model
-          echo "CONFIG_FILE=.config" >> $GITHUB_ENV
-          # The device model name for the info file
-          echo "DEVICE_MODEL=$(cat $CONFIG_FILE | grep CONFIG_TARGET_DEVICE_NAME= | cut -d '=' -f 2)" >> $GITHUB_ENV
-          # The tag name and body for the release
-          echo "TAG_NAME=openwrt-$BRANCH" >> $GITHUB_ENV
-          echo "BODY=This is a custom firmware built by GitHub Actions." >> $GITHUB_ENV
-
-      # Checkout the source code from the repository and branch
       - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          repository: $ {{ env.REPO }}
-          ref: $ {{ env.BRANCH }}
-        # Check the exit code and output of the checkout step
-        id: checkout
-        continue-on-error: true
-      - name: Check checkout result
-        if: steps.checkout.outcome != 'success'
-        run: |
-          echo "Checkout failed with exit code: $ {{ steps.checkout.outcome }}"
-          exit 1
+        uses: actions/checkout@main
 
-      # Install the dependencies for building the firmware
-      - name: Install dependencies
+      - name: Initialization environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python3 python2.7 unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx-ucl libelf-dev autoconf automake libtool autopoint device-tree-compiler g++-multilib antlr3 gperf wget curl swig rsync ccache
-        # Check the exit code and output of the install step
-        id: install
-        continue-on-error: true
-      - name: Check install result
-        if: steps.install.outcome != 'success'
-        run: |
-          echo "Install failed with exit code: $ {{ steps.install.outcome }}"
-          exit 1
+          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install $(curl -fsSL git.io/depends-ubuntu-2004)
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          sudo mkdir -p /workdir
+          sudo chown $USER:$GROUPS /workdir
 
-      # Load the config file for the device model
-      - name: Load config file
+      - name: Clone source code
+        working-directory: /workdir
         run: |
-          make menuconfig < $ {{ env.CONFIG_FILE }}
-        # Check the exit code and output of the load step
-        id: load
-        continue-on-error: true
-      - name: Check load result
-        if: steps.load.outcome != 'success'
+          df -hT $PWD
+          git clone $REPO_URL -b $REPO_BRANCH openwrt --depth=1 # 使用--depth=1参数只克隆最新的提交，减少下载时间和空间占用
+          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+      - name: Load custom configuration
         run: |
-          echo "Load failed with exit code: $ {{ steps.load.outcome
+          [ -e files ] && mv files openwrt/files # 如果有files目录，移动到openwrt目录下
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config # 如果有配置文件，移动到openwrt目录下
+
+      - name: Download package
+        id: package
+        run: |
+          cd openwrt
+          make defconfig # 使用默认配置或者自定义配置文件生成配置
+          make download -j$(nproc) # 下载依赖包，使用和CPU核心数相同的线程数并行下载，可以根据网络情况调整
+          find dl -size -1024c -exec ls -l {} \; # 列出下载失败的包，如果有的话
+          find dl -size -1024c -exec rm -f {} \; # 删除下载失败的包，如果有的话
+
+      - name: Compile the firmware
+        id: compile
+        run: |
+          cd openwrt
+          echo -e "$(nproc) thread compile" # 显示编译线程数，一般等于CPU核心数
+          make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache # 编译固件，使用ccache缓存编译结果，加快二次编译速度
+
+      - name: Upload to release 
+        uses: JasonEtco/upload-to-release@master # 使用第三方action上传文件到release
+
+源: 与必应的对话， 2023/3/30(1) How can I speed up the build process? - OpenWrt Wiki. https://openwrt.org/faq/how_can_i_speed_up_build_process 访问时间 2023/3/30.
+(2) Speed up embedded linux compilation process - Stack Overflow. https://stackoverflow.com/questions/68665890/speed-up-embedded-linux-compilation-process 访问时间 2023/3/30.
+(3) How to make OpenWrt Makefile compile faster? - linux. https://unix.stackexchange.com/questions/89120/how-to-make-openwrt-makefile-compile-faster 访问时间 2023/3/30.
