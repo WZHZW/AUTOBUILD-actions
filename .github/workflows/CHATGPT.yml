@@ -14,13 +14,13 @@ jobs:
         profile: [default]
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get -y install git-core build-essential libssl-dev libncurses5-dev unzip gawk zlib1g-dev
       - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ./openwrt/build_dir
@@ -40,7 +40,7 @@ jobs:
           make -j$(nproc) V=s || { echo "Build failed"; exit 1; }
       - name: Create release
         id: create_release
-        uses: actions/create-release@v1.0.2
+        uses: actions/create-release@v1.12.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -50,12 +50,12 @@ jobs:
           draft: false
           prerelease: false
       - name: Upload firmware
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: OpenWrt-Firmware
           path: bin/targets/
       - name: Attach firmware to release
-        uses: actions/upload-release-asset@v1.0.1
+        uses: actions/upload-release-asset@v1.0.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -70,7 +70,7 @@ jobs:
           rm -rf ./dl
       - name: Push changes to GitHub
         if: success()
-        uses: stefanzweifel/git-auto-commit-action@v4
+        uses: stefanzweifel/git-auto-commit-action@v4.16.0
         with:
           commit_message: "Automatic commit - ${{ matrix.profile }} build"
           commit_options: '--author="OpenWrt Build Server <>"'
@@ -80,13 +80,13 @@ jobs:
           commit_user_email: openwrtbuildserver@example.com
       - name: Retry on failure
         if: failure()
-        uses: actions/retry@v2
+        uses: actions/retry@v2.8.3
         with:
           max-retries: 3
           delay: 10s
       - name: Release OpenWrt Firmware
         if: success()
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v0.1.15
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
