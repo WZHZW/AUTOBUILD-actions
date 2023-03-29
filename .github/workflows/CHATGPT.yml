@@ -78,16 +78,6 @@ jobs:
           branch: ${{ github.ref }}
           commit_user_name: OpenWrt Build Server
           commit_user_email: openwrtbuildserver@example.com
-      - name: Retry on failure
-        if: failure()
-        uses: Wandalen/wretry.action@master
-        with:
-          action: action/node-setup@2.3.0
-          with: |
-            node-version: 14.x
-            architecture: x64
-          attempt_limit: 3
-          attempt_delay: 2000
       - name: Release OpenWrt Firmware
         if: success()
         uses: softprops/action-gh-release@v0.1.15
