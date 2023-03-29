@@ -4,6 +4,9 @@ on:
     branches:
       - master
   workflow_dispatch:
+env:
+  CONFIG_FILE: .config
+  TZ: Asia/Shanghai
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,10 +22,11 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential libncurses5-dev libssl-dev unzip gawk zlib1g-dev git subversion
-    - name: Copy .config
+    - name: Load config file
       run: |
-        cp .config .config.bak
-        cp openwrt/.config .config
+          make menuconfig < $ {{ env.CONFIG_FILE }}
+      id: load
+      continue-on-error: true
     - name: Build OpenWrt
       working-directory: ./openwrt
       run: |
