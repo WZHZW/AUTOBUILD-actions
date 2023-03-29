@@ -1,4 +1,4 @@
-name: Build OpenWrt
+name: CHATGPT
 on:
   push:
     branches:
