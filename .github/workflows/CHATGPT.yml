@@ -81,13 +81,6 @@ jobs:
         with:
           max-retries: 3
           delay: 10s
-      - name: Notify Telegram
-        if: always()
-        uses: appleboy/telegram-action@v0.2.0
-        with:
-          to: ${{ secrets.TELEGRAM_TO }}
-          token: ${{ secrets.TELEGRAM_TOKEN }}
-          message: Build ${{ job.status }}:${{ github.repository }} ${{ github.ref }} by ${{ github.actor }}. Build log:${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }}
       - name: Release OpenWrt Firmware
         if: success()
         uses: softprops/action-gh-release@v1
