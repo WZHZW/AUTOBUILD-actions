@@ -8,7 +8,7 @@
 # Description: Build OpenWrt using GitHub Actions
 #
 
-name: ARCHER
+name: ARCHEROPEN
 
 on:
   repository_dispatch:
