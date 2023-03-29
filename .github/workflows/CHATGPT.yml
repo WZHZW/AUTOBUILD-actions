@@ -59,6 +59,7 @@ jobs:
           
       - name: Build OpenWrt
         run: |
+          export TERM=xterm
           shopt -s extglob
           cd openwrt
           echo -e "$(($(nproc)+1)) thread compile"
