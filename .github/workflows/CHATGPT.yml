@@ -30,7 +30,7 @@ jobs:
           ./scripts/feeds install -a
       - name: Apply custom configuration
         run: |
-          cp ../config .config
+          cp ../.config .config
           make defconfig
       - name: Build OpenWrt
         run: |
