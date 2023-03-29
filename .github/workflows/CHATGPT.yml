@@ -5,6 +5,7 @@ on:
 env:
   REPO_URL: https://github.com/openwrt/openwrt
   REPO_BRANCH: master
+  CONFIG_FILE: .config
   TZ: Asia/Shanghai
 jobs:
   build:
@@ -52,8 +53,12 @@ jobs:
       
       - name: Apply custom configuration
         run: |
-          cp ../.config .config
-          make defconfig
+          [ -e files ] && mv files openwrt/files
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+          chmod +x $DIY_P2_SH
+          cd openwrt
+          $GITHUB_WORKSPACE/$DIY_P2_SH
+
       
       - name: Build OpenWrt
         run: |
