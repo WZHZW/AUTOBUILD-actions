@@ -1,0 +1,48 @@
+name: CHATGPT0
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          repository: openwrt/openwrt
+          ref: main
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python3 python2.7 unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx-ucl libelf-dev autoconf automake libtool autopoint device-tree-compiler g++-multilib antlr3 gperf wget curl swig rsync ccache
+
+      - name: Load config file
+        run: |
+          make menuconfig < .config
+
+      - name: Compile firmware
+        run: |
+          make -j$(nproc) V=s
+
+      - name: Generate info file
+        run: |
+          echo "Build date: $(date)" > info.txt
+          echo "Device model: $(cat .config | grep CONFIG_TARGET_DEVICE_NAME= | cut -d '=' -f 2)" >> info.txt
+          echo "Installed packages:" >> info.txt
+          cat .config | grep '=y' | cut -d '=' -f 1 | sed 's/CONFIG_PACKAGE_//g' >> info.txt
+
+      - name: Upload firmware and info file
+        uses: softprops/action-gh-release@v1
+        with:
+          name: OpenWrt Firmware
+          tag_name: openwrt-main
+          body: This is a custom firmware built by GitHub Actions.
+          files: |
+            bin/targets/*/*/*.bin
+            info.txt
