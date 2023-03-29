@@ -9,8 +9,8 @@
 
 | 型号 | 配置文件 | 状态 |
 | :----: | :----: | :----: |
-| [x86_64](./.github/workflows/AutoBuild-x86_64.yml) | [x86_64](./Configs/x86_64) | ❎ |
-| [Newifi3](./.github/workflows/AutoBuild-d-team_newifi-d2.yml) | [d-team_newifi-d2](./Configs/d-team_newifi-d2) | ✅ |
+| [x86_64](./.github/workflows/AMD64.yml) | [AMD64](.config1) | ❎ |
+| [Newifi3](./.github/workflows/Newifi3.yml) | [Newifi3](.configs) | ✅ |
 
 ## Credits
 
