@@ -4,9 +4,6 @@ on:
     branches:
       - master
   workflow_dispatch:
-env:
-  CONFIG_FILE: .config
-  TZ: Asia/Shanghai
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,22 +13,29 @@ jobs:
     - name: Clone OpenWrt
       run: |
         git clone https://github.com/openwrt/openwrt.git
+        cd openwrt
+        make defconfig
+        cd ..
         mv openwrt/* ./
         rm -rf openwrt/
     - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential libncurses5-dev libssl-dev unzip gawk zlib1g-dev git subversion
-    - name: Load config file
+    - name: Create .config
       run: |
-          make menuconfig < $ {{ env.CONFIG_FILE }}
-      id: load
-      continue-on-error: true
+        touch openwrt/.config
+    - name: Copy .config
+      run: |
+        cp .config .config.bak
+        cp openwrt/.config openwrt/.config.bak
+        cp openwrt/.config .config
     - name: Build OpenWrt
       working-directory: ./openwrt
       run: |
         make -j$(nproc)
     - name: Upload firmware
+      if: ${{ success() }}
       uses: actions/upload-artifact@v2
       with:
         name: openwrt-firmware
