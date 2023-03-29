@@ -28,6 +28,9 @@ jobs:
 
       - name: Compile firmware
         run: |
+          export PATH="/usr/lib/ccache:$PATH"
+          export CCACHE_DIR=$HOME/.ccache
+          export CCACHE_MAXSIZE=5G
           make -j$(nproc) V=s
 
       - name: Generate info file
