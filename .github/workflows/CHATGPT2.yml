@@ -2,26 +2,32 @@ name: CHATGPT2
 on:
   push:
     branches:
-      - main
+      - master
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Update feeds
-        run: |
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
-      - name: Configure
-        run: |
-          make defconfig
-          make menuconfig
-      - name: Build
-        run: |
-          make -j$(nproc) # 使用所有可用的 CPU 核心加速编译
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: OpenWrt firmware
-          path: ./bin/targets/
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Clone OpenWrt
+      run: |
+        git clone https://github.com/openwrt/openwrt.git
+        mv openwrt/* ./
+        rm -rf openwrt/
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libncurses5-dev libssl-dev unzip gawk zlib1g-dev git subversion
+    - name: Copy .config
+      run: |
+        cp .config .config.bak
+        cp openwrt/.config .config
+    - name: Build OpenWrt
+      working-directory: ./openwrt
+      run: |
+        make -j$(nproc)
+    - name: Upload firmware
+      uses: actions/upload-artifact@v2
+      with:
+        name: openwrt-firmware
+        path: openwrt/bin/targets/*
