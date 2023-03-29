@@ -1,1 +1,103 @@
-
+name: Build OpenWrt
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        profile: [default]
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install git-core build-essential libssl-dev libncurses5-dev unzip gawk zlib1g-dev
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ./openwrt/build_dir
+            ./openwrt/staging_dir
+          key: ${{ runner.os }}-${{ matrix.profile }}-${{ hashFiles('**/openwrt/feeds.conf') }}
+      - name: Clone OpenWrt feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+      - name: Apply custom configuration
+        run: |
+          cp ../config .config
+          make defconfig
+      - name: Build OpenWrt
+        run: |
+          make -j$(nproc) V=s || { echo "Build failed"; exit 1; }
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.sha }}
+          release_name: Release ${{ github.sha }}
+          body: Automatic build from commit:${{ github.sha }}
+          draft: false
+          prerelease: false
+      - name: Upload firmware
+        uses: actions/upload-artifact@v2
+        with:
+          name: OpenWrt-Firmware
+          path: bin/targets/
+      - name: Attach firmware to release
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: bin/targets/
+          asset_name: OpenWrt-Firmware-${{ matrix.profile }}-${{ github.sha }}.zip
+          asset_content_type: application/zip
+      - name: Clean build cache
+        run: |
+          make clean
+          rm -rf ./tmp
+          rm -rf ./dl
+      - name: Push changes to GitHub
+        if: success()
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Automatic commit - ${{ matrix.profile }} build"
+          commit_options: '--author="OpenWrt Build Server <>"'
+          repository: ${{ github.repository }}
+          branch: ${{ github.ref }}
+          commit_user_name: OpenWrt Build Server
+          commit_user_email: openwrtbuildserver@example.com
+      - name: Retry on failure
+        if: failure()
+        uses: actions/retry@v2
+        with:
+          max-retries: 3
+          delay: 10s
+      - name: Notify Telegram
+        if: always()
+        uses: appleboy/telegram-action@v0.2.0
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message: Build ${{ job.status }}:${{ github.repository }} ${{ github.ref }} by ${{ github.actor }}. Build log:${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }}
+      - name: Release OpenWrt Firmware
+        if: success()
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
+            bin/targets/*.zip
+          draft: false
+          prerelease: false
+          name: Release ${{ github.sha }}
+          tag_name: ${{ github.sha }}
+          body: Automatic build from commit:${{ github.sha }}
