@@ -24,7 +24,7 @@ jobs:
         sudo apt-get install -y build-essential libncurses5-dev libssl-dev unzip gawk zlib1g-dev git subversion
     - name: Create .config
       run: |
-        touch openwrt/.config
+        touch .config
     - name: Copy .config
       run: |
         cp .config .config.bak
