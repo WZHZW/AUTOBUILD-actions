@@ -64,5 +64,5 @@ jobs:
         with:
           args: Openwrt-Newifi3.bin
         env:
-          GITHUB_TOKEN: ${{ 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 }}
+          GITHUB_TOKEN: ${{ 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 }}
    
