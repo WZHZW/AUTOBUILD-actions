@@ -26,12 +26,6 @@ jobs:
       contents: write
 
     steps:
-    
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        ref: master
-    
     - name:  Maximize Build Space
       if: env.DELETE_USELESS_FILES == 'true' && !cancelled()
       uses: easimon/maximize-build-space@master
@@ -40,7 +34,12 @@ jobs:
         remove-dotnet: 'true'
         remove-android: 'true'
         remove-haskell: 'true'
-           
+    
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: master
+    
     - name: Initialize Environment
       env:
         DEBIAN_FRONTEND: noninteractive
