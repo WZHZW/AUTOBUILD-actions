@@ -15,10 +15,19 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
+      
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get -y install git-core build-essential libssl-dev libncurses5-dev unzip gawk zlib1g-dev
+      
+      - name: Clone source code
+        working-directory: /build_dir
+        run: |
+          df -hT $PWD
+          git clone $REPO_URL -b $REPO_BRANCH openwrt
+          ln -sf /build_dir/openwrt $GITHUB_WORKSPACE/openwrt
+      
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
@@ -26,18 +35,22 @@ jobs:
             ./openwrt/build_dir
             ./openwrt/staging_dir
           key: ${{ runner.os }}-${{ matrix.profile }}-${{ hashFiles('**/openwrt/feeds.conf') }}
+      
       - name: Clone OpenWrt feeds
         run: |
           cd openwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+      
       - name: Apply custom configuration
         run: |
           cp ../.config .config
           make defconfig
+      
       - name: Build OpenWrt
         run: |
           make -j$(nproc) V=s || { echo "Build failed"; exit 1; }
+      
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
@@ -49,11 +62,13 @@ jobs:
           body: Automatic build from commit:${{ github.sha }}
           draft: false
           prerelease: false
+      
       - name: Upload firmware
         uses: actions/upload-artifact@v3
         with:
           name: OpenWrt-Firmware
           path: bin/targets/
+      
       - name: Attach firmware to release
         uses: actions/upload-release-asset@v1
         env:
@@ -63,11 +78,13 @@ jobs:
           asset_path: bin/targets/
           asset_name: OpenWrt-Firmware-${{ matrix.profile }}-${{ github.sha }}.zip
           asset_content_type: application/zip
+      
       - name: Clean build cache
         run: |
           make clean
           rm -rf ./tmp
           rm -rf ./dl
+      
       - name: Push changes to GitHub
         if: success()
         uses: stefanzweifel/git-auto-commit-action@v4.16.0
@@ -78,6 +95,7 @@ jobs:
           branch: ${{ github.ref }}
           commit_user_name: OpenWrt Build Server
           commit_user_email: openwrtbuildserver@example.com
+      
       - name: Release OpenWrt Firmware
         if: success()
         uses: softprops/action-gh-release@v0.1.15
