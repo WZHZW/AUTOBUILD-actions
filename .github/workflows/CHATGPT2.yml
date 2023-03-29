@@ -1,4 +1,4 @@
-name: ARCHERNEW
+name: CHATGPT2
 on:
   push:
     branches:
