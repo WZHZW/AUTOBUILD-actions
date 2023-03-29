@@ -1,72 +1,67 @@
 name: CHATGPT0
 
 on:
-  repository_dispatch:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
   workflow_dispatch:
-env:
-  REPO_URL: https://github.com/openwrt/openwrt
-  REPO_BRANCH: master
-  CONFIG_FILE: .config
-  TZ: Asia/Shanghai
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v3
-        
+      # Define some variables for convenience
+      - name: Define variables
+        run: |
+          # The source code repository and branch
+          echo "REPO=openwrt/openwrt" >> $GITHUB_ENV
+          echo "BRANCH=main" >> $GITHUB_ENV
+          # The config file for the device model
+          echo "CONFIG_FILE=.config" >> $GITHUB_ENV
+          # The device model name for the info file
+          echo "DEVICE_MODEL=$(cat $CONFIG_FILE | grep CONFIG_TARGET_DEVICE_NAME= | cut -d '=' -f 2)" >> $GITHUB_ENV
+          # The tag name and body for the release
+          echo "TAG_NAME=openwrt-$BRANCH" >> $GITHUB_ENV
+          echo "BODY=This is a custom firmware built by GitHub Actions." >> $GITHUB_ENV
+
+      # Checkout the source code from the repository and branch
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          repository: $ {{ env.REPO }}
+          ref: $ {{ env.BRANCH }}
+        # Check the exit code and output of the checkout step
+        id: checkout
+        continue-on-error: true
+      - name: Check checkout result
+        if: steps.checkout.outcome != 'success'
+        run: |
+          echo "Checkout failed with exit code: $ {{ steps.checkout.outcome }}"
+          exit 1
+
+      # Install the dependencies for building the firmware
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python3 python2.7 unzip zlib1g-dev  libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx-ucl libelf-dev autoconf automake libtool autopoint device-tree-compiler g++-multilib antlr3 gperf wget curl swig rsync ccache
+          sudo apt-get install -y build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python3 python2.7 unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx-ucl libelf-dev autoconf automake libtool autopoint device-tree-compiler g++-multilib antlr3 gperf wget curl swig rsync ccache
+        # Check the exit code and output of the install step
+        id: install
+        continue-on-error: true
+      - name: Check install result
+        if: steps.install.outcome != 'success'
+        run: |
+          echo "Install failed with exit code: $ {{ steps.install.outcome }}"
+          exit 1
 
-      - name: Clone source code
-        working-directory: /build_dir
+      # Load the config file for the device model
+      - name: Load config file
         run: |
-          df -hT $PWD
-          git clone $REPO_URL -b $REPO_BRANCH openwrt
-          ln -sf /build_dir/openwrt $GITHUB_WORKSPACE/openwrt
-      
-      - name: Cache dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./openwrt/build_dir
-            ./openwrt/staging_dir
-          key: ${{ runner.os }}-${{ matrix.profile }}-${{ hashFiles('**/openwrt/feeds.conf') }}
-      
-      - name: Clone OpenWrt feeds
+          make menuconfig < $ {{ env.CONFIG_FILE }}
+        # Check the exit code and output of the load step
+        id: load
+        continue-on-error: true
+      - name: Check load result
+        if: steps.load.outcome != 'success'
         run: |
-          cd openwrt
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
-
-      - name: Apply custom configuration
-        run: |
-          [ -e files ] && mv files openwrt/files
-          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-          
-      - name: Compile firmware
-        run: |
-          export PATH="/usr/lib/ccache:$PATH"
-          export CCACHE_DIR=$HOME/.ccache
-          export CCACHE_MAXSIZE=5G
-          make -j$(nproc) V=s
-
-      - name: Generate info file
-        run: |
-          echo "Build date: $(date)" > info.txt
-          echo "Device model: $(cat .config | grep CONFIG_TARGET_DEVICE_NAME= | cut -d '=' -f 2)" >> info.txt
-          echo "Installed packages:" >> info.txt
-          cat .config | grep '=y' | cut -d '=' -f 1 | sed 's/CONFIG_PACKAGE_//g' >> info.txt
-
-      - name: Upload firmware and info file
-        uses: softprops/action-gh-release@v1
-        with:
-          name: OpenWrt Firmware
-          tag_name: openwrt-main
-          body: This is a custom firmware built by GitHub Actions.
-          files: |
-            bin/targets/*/*/*.bin
-            info.txt
+          echo "Load failed with exit code: $ {{ steps.load.outcome
