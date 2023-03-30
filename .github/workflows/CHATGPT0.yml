@@ -1,14 +1,10 @@
-# 这是一个使用GitHub Actions在线编译openwrt并上传到release的yml文件
-# 参考来源：https://openwrt.org/faq/how_can_i_speed_up_build_process
-# https://stackoverflow.com/questions/68665890/speed-up-embedded-linux-compilation-process
-# https://unix.stackexchange.com/questions/89120/how-to-make-openwrt-makefile-compile-faster
 name: CHATGPT0
 on:
-  workflow_dispatch: # 手动触发
+  workflow_dispatch:
 env:
-  REPO_URL: https://github.com/openwrt/openwrt # openwrt源码仓库地址
-  REPO_BRANCH: master # openwrt源码分支
-  CONFIG_FILE: .config # 配置文件名
+  REPO_URL: https://github.com/openwrt/openwrt 
+  REPO_BRANCH: master 
+  CONFIG_FILE: .config
 
 jobs:
   build:
@@ -34,29 +30,29 @@ jobs:
         working-directory: /workdir
         run: |
           df -hT $PWD
-          git clone $REPO_URL -b $REPO_BRANCH openwrt --depth=1 # 使用--depth=1参数只克隆最新的提交，减少下载时间和空间占用
+          git clone $REPO_URL -b $REPO_BRANCH openwrt --depth=1 
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
       - name: Load custom configuration
         run: |
-          [ -e files ] && mv files openwrt/files # 如果有files目录，移动到openwrt目录下
-          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config # 如果有配置文件，移动到openwrt目录下
+          [ -e files ] && mv files openwrt/files 
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config 
 
       - name: Download package
         id: package
         run: |
           cd openwrt
-          make defconfig # 使用默认配置或者自定义配置文件生成配置
-          make download -j$(nproc) # 下载依赖包，使用和CPU核心数相同的线程数并行下载，可以根据网络情况调整
-          find dl -size -1024c -exec ls -l {} \; # 列出下载失败的包，如果有的话
-          find dl -size -1024c -exec rm -f {} \; # 删除下载失败的包，如果有的话
+          make defconfig 
+          make download -j$(nproc) 
+          find dl -size -1024c -exec ls -l {} \; 
+          find dl -size -1024c -exec rm -f {} \; 
 
       - name: Compile the firmware
         id: compile
         run: |
           cd openwrt
-          echo -e "$(nproc) thread compile" # 显示编译线程数，一般等于CPU核心数
-          make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache # 编译固件，使用ccache缓存编译结果，加快二次编译速度
+          echo -e "$(nproc) thread compile" 
+          make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache 
 
       - name: release
         uses: softprops/action-gh-release@v1
