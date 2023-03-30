@@ -33,6 +33,11 @@ jobs:
           git clone $REPO_URL -b $REPO_BRANCH openwrt --depth=1 
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
+      - name: Update feeds
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+   
       - name: Load Custom Configuration
         run: |
           [ -e files ] && mv files openwrt/files 
@@ -69,10 +74,10 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: OpenWrt-Newifi3.bin
-          path: ${{ github.workspace }}/openwrt/bin/targets/ramips/mt7621/openwrt-ramips-mt7621-newifi-d2-squashfs-sysupgrade.bin
+          path: ${{ github.workspace }}/openwrt/bin/targets/ramips/mt7621/openwrt-ramips-mt7621-d-team_newifi-d2-squashfs-sysupgrade.bin
 
       - name: Upload Firmware to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.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 }}
-          file: ${{ github.workspace }}/openwrt/bin/targets/ramips/mt7621/openwrt-ramips-mt7621-newifi-d2-squashfs-sysupgrade.bin
+          file: ${{ github.workspace }}/openwrt/bin/targets/ramips/mt7621/openwrt-ramips-mt7621-d-team_newifi-d2-squashfs-sysupgrade.bin
