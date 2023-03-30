@@ -6,7 +6,6 @@ env:
   REPO_URL: https://github.com/openwrt/openwrt 
   REPO_BRANCH: master 
   CONFIG_FILE: .config
-
 jobs:
   build:
     runs-on: ubuntu-latest 
@@ -61,22 +60,20 @@ jobs:
           cd openwrt
           echo "CONFIG_TARGET_DEVICE_Newifi3=y" >> .config 
           make defconfig 
-          echo -e "$(nproc) thread compile" 
-          make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache 
+          echo -e "4 thread compile"
+          make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache  
           
       - name: Upload firmware artifact # add a name for this step
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: OpenWrt-Newifi3.bin # change this line according to your firmware file name
-          path: release/OpenWrt-Newifi3.bin # change this line according to your firmware file path
-      
-      - name: Download artifacts from build jobs
-        uses: actions/download-artifact@v2
+          path: openwrt/bin/Firmware/*
         
-      - name: Release artifacts to GitHub Releases page 
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.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 }} 
+      - name: Upload Firmware to Release
+        uses: svenstaro/upload-release-action@v2
         with:
-          tag_name: v1.0.0 
-          body: This is a test release. 
+         repo_token: ${{ secrets.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 }}
+         file: openwrt/bin/Firmware/*
+         file_glob: true
+         tag: Autobuild
+         overwrite: true
