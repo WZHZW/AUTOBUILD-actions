@@ -74,5 +74,5 @@ jobs:
        
       - name: Release artifacts to GitHub Releases page
         uses: softprops/action-gh-release@v1
-         
-        
+        env:
+          GITHUB_TOKEN: ${{ secrets.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 }}
