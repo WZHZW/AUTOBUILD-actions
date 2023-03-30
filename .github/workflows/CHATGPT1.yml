@@ -1,17 +1,22 @@
-name: CHATGPT1
+name: Build OpenWrt Firmware
+
 on:
   push:
-  workflow_dispatch: 
+    branches:
+      - master
+  workflow_dispatch:
+
 env:
   REPO_URL: https://github.com/openwrt/openwrt 
   REPO_BRANCH: master 
   CONFIG_FILE: .config
+
 jobs:
   build:
     runs-on: ubuntu-latest 
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v2
 
       - name: Initialization environment
         env:
@@ -28,8 +33,7 @@ jobs:
       - name: Clone source code
         working-directory: /workdir
         run: |
-          df -hT $PWD
-          git clone $REPO_URL -b $REPO_BRANCH openwrt --depth=1 
+          git clone $REPO_URL -b $REPO_BRANCH --depth=1 openwrt 
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
       - name: Load custom configuration
@@ -61,19 +65,16 @@ jobs:
           echo "CONFIG_TARGET_DEVICE_Newifi3=y" >> .config 
           make defconfig 
           echo -e "4 thread compile"
-          make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache  
-          
-      - name: Upload firmware artifact # add a name for this step
-        uses: actions/upload-artifact@v3
+          make -j$(nproc) V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v2
         with:
-          name: OpenWrt-Newifi3.bin # change this line according to your firmware file name
-          path: openwrt/bin/Firmware/*
+          name: OpenWrt-Newifi3.bin
+          path: openwrt/bin/targets/ramips/mt7621/openwrt-ramips-mt7621-Newifi3-squashfs-sysupgrade.bin
         
       - name: Upload Firmware to Release
         uses: svenstaro/upload-release-action@v2
         with:
-         repo_token: ${{ secrets.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 }}
-         file: openwrt/bin/Firmware/*
-         file_glob: true
-         tag: Autobuild
-         overwrite: true
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: openwrt/bin/targets/ramips/mt7621/openwrt-ramips-mt7621-Newifi3-squashfs-sysupgrade
