@@ -58,11 +58,11 @@ jobs:
           echo -e "$(nproc) thread compile" # 显示编译线程数，一般等于CPU核心数
           make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache # 编译固件，使用ccache缓存编译结果，加快二次编译速度
 
-     
-      - name: Upload to release
-        uses : JasonEtco/upload-to-release@master # 使用第三方action上传文件到release页面，需要提供GITHUB_TOKEN和文件路径参数 
+      - name: release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          args: Openwrt-Newifi3.bin
+          files: release/Openwrt-Newifi3.bin
         env:
           GITHUB_TOKEN: ${{ secrets.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 }}
-   
+          
