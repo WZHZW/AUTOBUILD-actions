@@ -1,127 +1,78 @@
 name: CHATGPT1
 on:
-  repository_dispatch:
   workflow_dispatch:
 env:
-  REPO_URL: https://github.com/openwrt/openwrt
-  REPO_BRANCH: master
+  REPO_URL: https://github.com/openwrt/openwrt 
+  REPO_BRANCH: master 
   CONFIG_FILE: .config
-  TZ: Asia/Shanghai
+
 jobs:
   build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        profile: [default]
+    runs-on: ubuntu-latest 
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v3
-      
-      - name: Install dependencies
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Initialization environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo -E apt-get -qq install build-essential clang flex g++ gawk gcc-multilib gettext \
-          git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev swig libpython3-dev aria2 jq subversion qemu-utils ccache rename libelf-dev device-tree-compiler
-          sudo -E apt-get -qq purge azure-cli ghc* zulu* llvm* firefox powershell openjdk* dotnet* google* mysql* php* android*
-          sudo mkdir -p /build_dir
-          sudo chown $USER:$GROUPS /build_dir
-          docker rmi `docker images -q`
-          sudo rm -rf /usr/share/dotnet /etc/mysql /etc/php /etc/apt/sources.list.d /usr/local/lib/android
-          sudo -E apt-get -y autoremove --purge
-          sudo -E apt-get clean
-          sudo timedatectl set-timezone "Asia/Shanghai"
-      
+          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install $(curl -fsSL git.io/depends-ubuntu-2004)
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          sudo mkdir -p /workdir
+          sudo chown $USER:$GROUPS /workdir
+
       - name: Clone source code
-        working-directory: /build_dir
+        working-directory: /workdir
         run: |
           df -hT $PWD
-          git clone $REPO_URL -b $REPO_BRANCH openwrt
-          ln -sf /build_dir/openwrt $GITHUB_WORKSPACE/openwrt
-      
-      - name: Cache dependencies
-        uses: actions/cache@v3
+          git clone $REPO_URL -b $REPO_BRANCH openwrt --depth=1 
+          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+      - name: Load custom configuration
+        run: |
+          [ -e files ] && mv files openwrt/files 
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config 
+
+      - name: Cache dl directory
+        uses: actions/cache@v2
         with:
-          path: |
-            ./openwrt/build_dir
-            ./openwrt/staging_dir
-          key: ${{ runner.os }}-${{ matrix.profile }}-${{ hashFiles('**/openwrt/feeds.conf') }}
-      
-      - name: Clone OpenWrt feeds
+          path: openwrt/dl
+          key: ${{ runner.os }}-dl-${{ hashFiles('openwrt/.config') }}
+          restore-keys: |
+            ${{ runner.os }}-dl-
+
+      - name: Download package
+        id: package
         run: |
           cd openwrt
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
-      
-      - name: Apply custom configuration
+          make defconfig 
+          make download -j$(nproc) 
+          find dl -size -1024c -exec ls -l {} \; 
+          find dl -size -1024c -exec rm -f {} \; 
+
+      - name: Compile the firmware 
+        id: compile
         run: |
-          [ -e files ] && mv files openwrt/files
-          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+          cd openwrt
+          echo "CONFIG_TARGET_DEVICE_Newifi3=y" >> .config # change this line according to your device config option
+          make defconfig 
+          echo -e "$(nproc) thread compile" 
+          make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache 
           
-      - name: Build OpenWrt
-        run: |
-          export TERM=xterm
-          shopt -s extglob
-          cd openwrt
-          make -j$(nproc) 
-          grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-          [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-          echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
-      
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload firmware artifact 
+        uses: actions/upload-artifact@v2
         with:
-          tag_name: ${{ github.sha }}
-          release_name: Release ${{ github.sha }}
-          body: Automatic build from commit:${{ github.sha }}
-          draft: false
-          prerelease: false
+          name: OpenWrt-Newifi3.bin # change this line according to your firmware file name
+          path: release/OpenWrt-Newifi3.bin # change this line according to your firmware file path
       
-      - name: Upload firmware
-        uses: actions/upload-artifact@v3
-        with:
-          name: OpenWrt-Firmware
-          path: bin/targets/
-      
-      - name: Attach firmware to release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: bin/targets/
-          asset_name: OpenWrt-Firmware-${{ matrix.profile }}-${{ github.sha }}.zip
-          asset_content_type: application/zip
-      
-      - name: Clean build cache
-        run: |
-          make clean
-          rm -rf ./tmp
-          rm -rf ./dl
-      
-      - name: Push changes to GitHub
-        if: success()
-        uses: stefanzweifel/git-auto-commit-action@v4.16.0
-        with:
-          commit_message: "Automatic commit - ${{ matrix.profile }} build"
-          commit_options: '--author="OpenWrt Build Server <>"'
-          repository: ${{ github.repository }}
-          branch: ${{ github.ref }}
-          commit_user_name: OpenWrt Build Server
-          commit_user_email: openwrtbuildserver@example.com
-      
-      - name: Release OpenWrt Firmware
-        if: success()
-        uses: softprops/action-gh-release@v0.1.15
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: |
-            bin/targets/*.zip
-          draft: false
-          prerelease: false
-          name: Release ${{ github.sha }}
-          tag_name: ${{ github.sha }}
-          body: Automatic build from commit:${{ github.sha }}
+      - name: Download artifacts from build jobs
+        uses: actions/download-artifact@v2
+       
+      - name: Release artifacts to GitHub Releases page
+        uses: softprops/action-gh-release@v1
+         
+        
