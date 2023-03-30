@@ -1,64 +1,80 @@
 name: CHATGPT0
+
 on:
+  push:
   workflow_dispatch:
+
 env:
-  REPO_URL: https://github.com/openwrt/openwrt 
-  REPO_BRANCH: master 
+  REPO_URL: https://github.com/openwrt/openwrt
+  REPO_BRANCH: master
   CONFIG_FILE: .config
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v2
 
-      - name: Initialization environment
-        env:
-          DEBIAN_FRONTEND: noninteractive
+      - name: Initialize Environment
         run: |
           sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
           sudo -E apt-get -qq update
-          sudo -E apt-get -qq install $(curl -fsSL git.io/depends-ubuntu-2004)
+          sudo -E apt-get -qq install $(curl -fsSL git.io/depends-ubuntu-latest)
           sudo -E apt-get -qq autoremove --purge
           sudo -E apt-get -qq clean
           sudo mkdir -p /workdir
           sudo chown $USER:$GROUPS /workdir
 
-      - name: Clone source code
+      - name: Clone Source Code
         working-directory: /workdir
         run: |
-          df -hT $PWD
-          git clone $REPO_URL -b $REPO_BRANCH openwrt --depth=1 
+          git clone $REPO_URL -b $REPO_BRANCH openwrt --depth=1
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
-      - name: Load custom configuration
+      - name: Load Custom Configuration
         run: |
-          [ -e files ] && mv files openwrt/files 
-          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config 
+          [ -d files ] && mv files openwrt/files
+          [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
 
-      - name: Download package
-        id: package
+      - name: Cache DL Directory
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: openwrt/dl
+          key: ${{ runner.os }}-dl-${{ hashFiles('openwrt/.config') }}
+          restore-keys: |
+            ${{ runner.os }}-dl-
+
+      - name: Download Packages
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cd openwrt
-          make defconfig 
-          make download -j$(nproc) 
-          find dl -size -1024c -exec ls -l {} \; 
-          find dl -size -1024c -exec rm -f {} \; 
+          make defconfig
+          make download -j$(nproc)
+          find dl -size -1024c -exec ls -l {} \;
+          find dl -size -1024c -exec rm -f {} \;
 
-      - name: Compile the firmware
+      - name: Compile Firmware
         id: compile
         run: |
           cd openwrt
-          echo -e "$(nproc) thread compile" 
-          make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache 
+          echo "CONFIG_TARGET_DEVICE_Newifi3=y" >> .config
+          make defconfig
+          echo -e "$(nproc) Thread Compile"
+          make -j$(nproc) V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache
 
-      - name: release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload Firmware Artifact
+        uses: actions/upload-artifact@v2
         with:
-          files: release/Openwrt-Newifi3.bin
-        env:
-          GITHUB_TOKEN: ${{ secrets.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 }}
-          
+          name: OpenWrt-Newifi3.bin
+          path: openwrt/bin/targets/ramips/mt7621/openwrt-ramips-mt7621-newifi-d2-squashfs-sysupgrade.bin
+
+      - name: Upload Firmware to Release
+        uses: svenstaro/upload-release-action@v2
+        if: success()
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: openwrt/bin/targets/ramips/mt7621/openwrt-ramips-mt7621-Newifi3-squashfs-sysupgrade.bin
+          tag: ${{ github.ref }}
