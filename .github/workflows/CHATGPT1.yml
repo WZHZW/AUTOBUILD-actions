@@ -1,6 +1,6 @@
 name: CHATGPT1
 on:
-  workflow_dispatch:
+  push:
 env:
   REPO_URL: https://github.com/openwrt/openwrt 
   REPO_BRANCH: master 
@@ -58,12 +58,12 @@ jobs:
         id: compile
         run: |
           cd openwrt
-          echo "CONFIG_TARGET_DEVICE_Newifi3=y" >> .config # change this line according to your device config option
+          echo "CONFIG_TARGET_DEVICE_Newifi3=y" >> .config 
           make defconfig 
           echo -e "$(nproc) thread compile" 
           make V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache 
           
-      - name: Upload firmware artifact 
+      - name: Upload firmware artifact # add a name for this step
         uses: actions/upload-artifact@v2
         with:
           name: OpenWrt-Newifi3.bin # change this line according to your firmware file name
@@ -71,8 +71,11 @@ jobs:
       
       - name: Download artifacts from build jobs
         uses: actions/download-artifact@v2
-       
-      - name: Release artifacts to GitHub Releases page
+        
+      - name: Release artifacts to GitHub Releases page 
         uses: softprops/action-gh-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.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 }}
+          GITHUB_TOKEN: ${{ secrets.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 }} 
+        with:
+          tag_name: v1.0.0 
+          body: This is a test release. 
