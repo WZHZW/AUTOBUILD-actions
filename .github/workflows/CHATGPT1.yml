@@ -1,9 +1,7 @@
-name: Build OpenWrt Firmware
+name: Build OpenWrt
 
 on:
   push:
-    branches:
-      - master
   workflow_dispatch:
 
 env:
@@ -14,13 +12,12 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest 
+
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Initialization environment
-        env:
-          DEBIAN_FRONTEND: noninteractive
+      - name: Initialize Environment
         run: |
           sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
           sudo -E apt-get -qq update
@@ -30,18 +27,18 @@ jobs:
           sudo mkdir -p /workdir
           sudo chown $USER:$GROUPS /workdir
 
-      - name: Clone source code
+      - name: Clone Source Code
         working-directory: /workdir
         run: |
-          git clone $REPO_URL -b $REPO_BRANCH --depth=1 openwrt 
+          git clone $REPO_URL -b $REPO_BRANCH openwrt --depth=1 
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
-      - name: Load custom configuration
+      - name: Load Custom Configuration
         run: |
           [ -e files ] && mv files openwrt/files 
           [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config 
 
-      - name: Cache dl directory
+      - name: Cache DL Directory
         uses: actions/cache@v2
         with:
           path: openwrt/dl
@@ -49,30 +46,31 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-dl-
 
-      - name: Download package
+      - name: Download Packages
         id: package
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cd openwrt
           make defconfig 
-          make download -j$(nproc) 
+          make download -j8 
           find dl -size -1024c -exec ls -l {} \; 
           find dl -size -1024c -exec rm -f {} \; 
 
-      - name: Compile the firmware 
+      - name: Compile Firmware 
         id: compile
         run: |
           cd openwrt
           echo "CONFIG_TARGET_DEVICE_Newifi3=y" >> .config 
           make defconfig 
-          echo -e "4 thread compile"
-          make -j$(nproc) V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache
+          echo -e "8 Thread Compile"
+          make -j8 V=s CCACHE=1 CCACHE_DIR=$GITHUB_WORKSPACE/.ccache 
 
-      - name: Upload firmware artifact
+      - name: Upload Firmware Artifact
         uses: actions/upload-artifact@v2
         with:
           name: OpenWrt-Newifi3.bin
-          path: openwrt/bin/targets/ramips/mt7621/openwrt-ramips-mt7621-Newifi3-squashfs-sysupgrade.bin
-        
+          path: openwrt/bin/targets/ramips/mt7621/openwrt-ramips-mt7621-newifi-d2-squashfs-sysupgrade.bin
+
       - name: Upload Firmware to Release
         uses: svenstaro/upload-release-action@v2
         with:
